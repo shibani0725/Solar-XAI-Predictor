@@ -34,13 +34,22 @@ try:
     y = full_df[target_dc]
 
     # 4. Load/Train Model (XGBoost)
-    model_dc = xgb.XGBRegressor(n_estimators=100)
+    full_df = full_df.dropna(subset=[target_dc] + features) # Remove empty rows
+    X = full_df[features]
+    y = full_df[target_dc]
+
+    model_dc = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.1)
     model_dc.fit(X, y)
 
-    # 5. Prediction for Sidebar Inputs
+    # 5. Prediction
     input_df = pd.DataFrame([[irradiation, ambient_temp, module_temp]], columns=features)
+    # Ensure inputs are float
+    input_df = input_df.astype(float)
     prediction = model_dc.predict(input_df)[0]
-
+    
+    # If prediction is negative (happens with small data), set to 0
+    prediction = max(0, prediction)
+    
     # 6. Top Metrics Display
     st.title("☀️ Solar Power Forecasting & Explainable AI")
     m1, m2, m3 = st.columns(3)
@@ -71,7 +80,7 @@ try:
         st.pyplot(plt.gcf())
         plt.close(fig_force)
 
-    with colright:
+    with col_right:
         st.subheader("📊 Global Impact (Bar Chart)")
         st.write("Variable importance across all data.")
 
