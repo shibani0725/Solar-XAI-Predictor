@@ -39,9 +39,11 @@ try:
         st.stop()
 
     target_dc = "DC_POWER"
+    target_ac = "AC_POWER"
     features = ["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"]
     X = full_df[features]
     y = full_df[target_dc]
+    
 
     # 4. Train Model
     model_dc = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.1)
