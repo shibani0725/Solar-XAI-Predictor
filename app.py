@@ -137,7 +137,7 @@ try:
         st.pyplot(plt.gcf())
         plt.close(fig_force)
 
-    with copyright:
+    with col_right:
         st.subheader("📊 Global Impact (Bar Chart)")
         st.write("Variable importance across all data.")
         
