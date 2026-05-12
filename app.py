@@ -20,36 +20,32 @@ day_of_year = st.sidebar.slider("Day of Year", 1, 365, 180)
 
 # 3. Main Logic
 try:
-    # Load Data (Ensure these files are in your GitHub repo!)
+    # Load Data
     gen_df = pd.read_csv("Plant_1_Generation_Data.csv")
     weather_df = pd.read_csv("Plant_1_Weather_Sensor_Data.csv")
 
-    # Simple Preprocessing (matching your model training)
+    # Merge and Clean Data (Fixes the 'nan' error)
     full_df = pd.merge(gen_df, weather_df, on="DATE_TIME", how="inner")
+    
     target_dc = "DC_POWER"
     target_ac = "AC_POWER"
     features = ["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"]
     
+    # Remove rows with empty values to ensure the model predicts actual numbers
+    full_df = full_df.dropna(subset=[target_dc] + features)
+    
     X = full_df[features]
     y = full_df[target_dc]
 
-    # 4. Load/Train Model (XGBoost)
-    full_df = full_df.dropna(subset=[target_dc] + features) # Remove empty rows
-    X = full_df[features]
-    y = full_df[target_dc]
-
+    # 4. Train Model
     model_dc = xgb.XGBRegressor(n_estimators=100, max_depth=3, learning_rate=0.1)
     model_dc.fit(X, y)
 
-    # 5. Prediction
+    # 5. Prediction for Sidebar Inputs
     input_df = pd.DataFrame([[irradiation, ambient_temp, module_temp]], columns=features)
-    # Ensure inputs are float
-    input_df = input_df.astype(float)
     prediction = model_dc.predict(input_df)[0]
-    
-    # If prediction is negative (happens with small data), set to 0
-    prediction = max(0, prediction)
-    
+    prediction = max(0, prediction) # Ensure no negative power
+
     # 6. Top Metrics Display
     st.title("☀️ Solar Power Forecasting & Explainable AI")
     m1, m2, m3 = st.columns(3)
@@ -61,18 +57,20 @@ try:
     st.divider()
     col_left, col_right = st.columns([1, 1])
 
+    # Initialize SHAP Explainer
+    explainer = shap.Explainer(model_dc, X)
+
     with col_left:
         st.subheader("🔍 Local Explanation (Force Plot)")
         st.write("Tug-of-war for THIS specific moment.")
         
-        # Calculate SHAP for the specific input
-        explainer = shap.Explainer(model_dc, X)
-        shap_values_input = explainer(input_df)
+        # 'check_additivity=False' fixes the red technical error box
+        shap_values_local = explainer(input_df, check_additivity=False)
 
         fig_force, ax_force = plt.subplots(figsize=(10, 3))
         shap.force_plot(
             explainer.expected_value, 
-            shap_values_input.values[0], 
+            shap_values_local.values[0], 
             input_df.iloc[0], 
             matplotlib=True, 
             show=False
@@ -84,10 +82,10 @@ try:
         st.subheader("📊 Global Impact (Bar Chart)")
         st.write("Variable importance across all data.")
 
-        # SHAP Bar Plot for Global Importance
-        full_shap_values = explainer(X)
+        # SHAP Bar Plot (using a sample for speed)
+        sample_shap = explainer(X.head(100), check_additivity=False)
         fig_bar = plt.figure(figsize=(8, 4))
-        shap.plots.bar(full_shap_values, show=False)
+        shap.plots.bar(sample_shap, show=False)
         plt.tight_layout()
         st.pyplot(fig_bar)
         plt.close(fig_bar)
@@ -95,11 +93,9 @@ try:
     # 8. Historical Analytics
     st.divider()
     st.subheader("📈 Plant Historical Performance (Daylight Comparison)")
-    # Filter for daylight hours to make the chart look better
     chart_data = full_df[full_df[target_dc] > 10].tail(100).set_index('DATE_TIME')
     st.line_chart(chart_data[[target_dc, target_ac]])
 
-# 9. Error Handling
 except FileNotFoundError:
     st.error("⚠️ Missing Data Files! Ensure CSVs are in the project folder on GitHub.")
 except Exception as e:
