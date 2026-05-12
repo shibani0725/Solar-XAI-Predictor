@@ -20,19 +20,26 @@ day_of_year = st.sidebar.slider("Day of Year", 1, 365, 180)
 
 # 3. Main Logic
 try:
-    # Load Data
+    # Load Data with error checking
     gen_df = pd.read_csv("Plant_1_Generation_Data.csv")
     weather_df = pd.read_csv("Plant_1_Weather_Sensor_Data.csv")
 
-    # Merge and Clean Data (Fixes the 'nan' error)
+    # Clean the column names (removes hidden spaces)
+    gen_df.columns = gen_df.columns.str.strip()
+    weather_df.columns = weather_df.columns.str.strip()
+
+    # Merge Data
     full_df = pd.merge(gen_df, weather_df, on="DATE_TIME", how="inner")
     
-    target_dc = "DC_POWER"
-    target_ac = "AC_POWER"
-    features = ["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"]
+    # ⚠️ THIS IS THE IMPORTANT PART: Remove all rows with empty values
+    full_df = full_df.dropna()
     
-    # Remove rows with empty values to ensure the model predicts actual numbers
-    full_df = full_df.dropna(subset=[target_dc] + features)
+    if full_df.empty:
+        st.error("The merged data is empty. Please check your CSV files!")
+        st.stop()
+
+    target_dc = "DC_POWER"
+    features = ["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"]
     
     X = full_df[features]
     y = full_df[target_dc]
