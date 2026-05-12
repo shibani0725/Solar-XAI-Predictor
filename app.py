@@ -20,27 +20,26 @@ day_of_year = st.sidebar.slider("Day of Year", 1, 365, 180)
 
 # 3. Main Logic
 try:
-    # Load Data with error checking
+    # Load Data
     gen_df = pd.read_csv("Plant_1_Generation_Data.csv")
     weather_df = pd.read_csv("Plant_1_Weather_Sensor_Data.csv")
 
-    # Clean the column names (removes hidden spaces)
-    gen_df.columns = gen_df.columns.str.strip()
-    weather_df.columns = weather_df.columns.str.strip()
+    # FORCE timestamps to match (The Fix)
+    gen_df['DATE_TIME'] = pd.to_datetime(gen_df['DATE_TIME'], dayfirst=True)
+    weather_df['DATE_TIME'] = pd.to_datetime(weather_df['DATE_TIME'], dayfirst=True)
 
-    # Merge Data
+    # Merge Data now that the dates match
     full_df = pd.merge(gen_df, weather_df, on="DATE_TIME", how="inner")
     
-    # ⚠️ THIS IS THE IMPORTANT PART: Remove all rows with empty values
+    # Remove any empty rows
     full_df = full_df.dropna()
     
-    if full_df.empty:
-        st.error("The merged data is empty. Please check your CSV files!")
+    if len(full_df) == 0:
+        st.error("Merge failed! Check if the date ranges in your CSV files are the same.")
         st.stop()
 
     target_dc = "DC_POWER"
     features = ["IRRADIATION", "AMBIENT_TEMPERATURE", "MODULE_TEMPERATURE"]
-    
     X = full_df[features]
     y = full_df[target_dc]
 
